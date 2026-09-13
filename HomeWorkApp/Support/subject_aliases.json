@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Deutsch Grundkurs",
+    "alias": "DE11"
+  },
+  {
+    "name": "Englisch",
+    "alias": "EN11"
+  },
+  {
+    "name": "Mathematik",
+    "alias": "MA11"
+  },
+  {
+    "name": "Biologie",
+    "alias": "Bl11"
+  },
+  {
+    "name": "Chemie",
+    "alias": "CH11"
+  },
+  {
+    "name": "Physik",
+    "alias": "Ph11"
+  },
+  {
+    "name": "Geschichte",
+    "alias": "GE11"
+  },
+  {
+    "name": "Geografie",
+    "alias": "GEO11"
+  },
+  {
+    "name": "Informatik Grundkurs",
+    "alias": "INB01"
+  },
+  {
+    "name": "Musik",
+    "alias": "MUB02"
+  },
+  {
+    "name": "Sport",
+    "alias": "SPO11"
+  },
+  {
+      "name": "Deutsch Profilkurs",
+      "alias": "DEP01"
+  },
+  {
+      "name": "Informatik Profilkurs",
+      "alias": "INP01"
+  },
+  {
+      "name": "Philosophie",
+      "alias": "PHILB02"
+  },
+  {
+      "name": "Politik",
+      "alias": "PW11"
+  }
+]
