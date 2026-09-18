@@ -88,12 +88,29 @@ struct HomeworkComposerView: View {
             Divider()
 
             HStack {
+                Button {
+                    Task { await store.refreshTodaySchedule(force: true) }
+                } label: {
+                    if store.isRefreshingSchedule {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                .buttonStyle(.borderless)
+                .disabled(store.isRefreshingSchedule)
+                .help("Stundenplan aktualisieren")
                 SettingsLink {
                     Image(systemName: "gear")
                 }
                 .buttonStyle(.borderless)
                 .help("Einstellungen")
                 Spacer()
+                Button("Beenden") {
+                    NSApplication.shared.terminate(nil)
+                }
+                .buttonStyle(.borderless)
                 Button {
                     Task { await store.submit() }
                 } label: {
@@ -111,6 +128,9 @@ struct HomeworkComposerView: View {
         }
         .padding(20)
         .frame(width: 390)
+        .task {
+            await store.refreshTodaySchedule()
+        }
     }
 }
 

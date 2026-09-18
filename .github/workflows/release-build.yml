@@ -18,6 +18,7 @@ jobs:
 
       - name: Build macOS app archive
         run: |
+          set -euo pipefail
           xcodebuild archive \
             -project HomeWorkApp.xcodeproj \
             -scheme MyApp \
@@ -26,14 +27,54 @@ jobs:
             -archivePath "$RUNNER_TEMP/HomeWorkApp.xcarchive" \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Create DMG
+      - name: Locate built app
         run: |
+          set -euo pipefail
           APP_PATH=$(find "$RUNNER_TEMP/HomeWorkApp.xcarchive/Products/Applications" -maxdepth 1 -name "*.app" -print -quit)
           if [ -z "$APP_PATH" ]; then
             echo "Keine .app im Archiv gefunden"
             exit 1
           fi
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
 
+      # The Schulmanager-Abgleich feature shells out to a bundled Python helper (see
+      # HomeWorkApp/Services/SchoolManagerCalendarService.swift) that needs Selenium and the
+      # third-party Schulmanager-API repo. Locally these come from .venv/ and Vendor/, created
+      # once via script/setup_schulmanager_api.sh - but both are git-ignored and were never part
+      # of what xcodebuild archives, so every release DMG shipped with that feature permanently
+      # broken ("Die lokale Schulmanager-API wurde nicht gefunden"), even though it worked from a
+      # local Xcode build. This step bundles what's missing directly into the built .app.
+      #
+      # We deliberately don't copy the runner's own .venv: its python binary is a symlink into
+      # this runner's filesystem and won't exist on a user's Mac. Instead we install selenium's
+      # (pure-Python) packages into a standalone, interpreter-independent folder via
+      # `pip install --target`, which HomeWorkApp/Services/SchoolManagerCalendarService.swift
+      # pairs with whatever python3 is already installed on the user's own machine via PYTHONPATH.
+      # A throwaway venv is used only to run pip itself, so this doesn't depend on the runner's
+      # system Python allowing top-level `pip install` (PEP 668).
+      - name: Bundle Schulmanager runtime (vendor API + Selenium)
+        run: |
+          set -euo pipefail
+          RUNTIME_DIR="$RUNNER_TEMP/schulmanager-runtime"
+          rm -rf "$RUNTIME_DIR"
+          mkdir -p "$RUNTIME_DIR"
+
+          git clone --depth 1 https://github.com/SchmueI/Schulmanager-API.git "$RUNTIME_DIR/Schulmanager-API"
+          rm -rf "$RUNTIME_DIR/Schulmanager-API/.git"
+
+          python3 -m venv "$RUNTIME_DIR/.pip-venv"
+          "$RUNTIME_DIR/.pip-venv/bin/python" -m pip install --upgrade pip
+          "$RUNTIME_DIR/.pip-venv/bin/python" -m pip install --target "$RUNTIME_DIR/site-packages" selenium
+          rm -rf "$RUNTIME_DIR/.pip-venv"
+
+          DEST="$APP_PATH/Contents/Resources/SchulmanagerRuntime"
+          mkdir -p "$DEST"
+          cp -R "$RUNTIME_DIR/Schulmanager-API" "$DEST/Schulmanager-API"
+          cp -R "$RUNTIME_DIR/site-packages" "$DEST/site-packages"
+
+      - name: Create DMG
+        run: |
+          set -euo pipefail
           mkdir -p dist
           DMG_PATH="dist/HomeWorkApp-${GITHUB_RUN_NUMBER}.dmg"
           hdiutil create \

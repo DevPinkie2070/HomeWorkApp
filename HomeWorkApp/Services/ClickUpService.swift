@@ -22,12 +22,13 @@ struct ClickUpService {
         }
 
         let dueMilliseconds = Int64(dueDate.timeIntervalSince1970 * 1_000)
+        let assigneeID = SchoolSettings().clickUpAssigneeID.trimmingCharacters(in: .whitespacesAndNewlines)
         let payload = ClickUpTaskPayload(
             name: "[\(subject)] Hausaufgabe",
             markdownDescription: "## \(subject)\n\n\(homework)\n\n*Fällig: \(dueDate.formatted(date: .long, time: .shortened))*",
             dueDate: dueMilliseconds,
             dueDateTime: includesTime,
-            assignees: [158456463]
+            assignees: Int(assigneeID).map { [$0] } ?? []
         )
 
         var request = URLRequest(url: url)
@@ -46,6 +47,38 @@ struct ClickUpService {
         }
 
         return try? JSONDecoder().decode(ClickUpTaskResponse.self, from: data).url
+    }
+
+    /// Verifies that a token/list ID pair can reach ClickUp and resolves to a real list.
+    /// Pass explicit values to test unsaved settings-form input; omit them to test the saved configuration.
+    func verifyConnection(token overrideToken: String? = nil, listID overrideListID: String? = nil) async throws -> String {
+        let token = overrideToken ?? KeychainStore.value(for: "clickUpToken") ?? ""
+        guard !token.isEmpty else {
+            throw HomeworkServiceError.missingClickUpToken
+        }
+
+        let listID = (overrideListID ?? SchoolSettings().clickUpListID).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !listID.isEmpty else {
+            throw HomeworkServiceError.missingClickUpListID
+        }
+
+        guard let url = URL(string: "https://api.clickup.com/api/v2/list/\(listID)") else {
+            throw HomeworkServiceError.invalidClickUpListID
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue(token, forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw HomeworkServiceError.invalidServerResponse
+        }
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            let message = try? JSONDecoder().decode(ClickUpErrorResponse.self, from: data).err
+            throw HomeworkServiceError.clickUpConnectionFailed(httpResponse.statusCode, message)
+        }
+
+        return (try? JSONDecoder().decode(ClickUpListResponse.self, from: data).name) ?? listID
     }
 }
 
@@ -73,12 +106,17 @@ private struct ClickUpErrorResponse: Decodable {
     let err: String?
 }
 
+private struct ClickUpListResponse: Decodable {
+    let name: String?
+}
+
 enum HomeworkServiceError: LocalizedError {
     case missingClickUpToken
     case missingClickUpListID
     case invalidClickUpListID
     case invalidServerResponse
     case clickUpRequestFailed(Int, String?)
+    case clickUpConnectionFailed(Int, String?)
     case schoolManagerAccessDisabled
     case missingSchoolManagerCredentials
     case invalidSchoolManagerEmail
@@ -87,6 +125,7 @@ enum HomeworkServiceError: LocalizedError {
     case schoolManagerLoginTimeout
     case schoolManagerDiagnostic(String)
     case schoolManagerRequestFailed
+    case schoolManagerTimedOut
     case noNextLesson(String)
 
     var errorDescription: String? {
@@ -101,6 +140,8 @@ enum HomeworkServiceError: LocalizedError {
             return "Der Server hat keine verwertbare Antwort geliefert."
         case let .clickUpRequestFailed(statusCode, message):
             return "ClickUp hat die Aufgabe nicht angelegt (HTTP \(statusCode))\(message.map { ": \($0)" } ?? "")."
+        case let .clickUpConnectionFailed(statusCode, message):
+            return "Verbindung zu ClickUp fehlgeschlagen (HTTP \(statusCode))\(message.map { ": \($0)" } ?? "")."
         case .schoolManagerAccessDisabled:
             return "Bitte aktiviere zuerst den Schulmanager-Abgleich in den Einstellungen."
         case .missingSchoolManagerCredentials:
@@ -117,6 +158,8 @@ enum HomeworkServiceError: LocalizedError {
             return "Der Schulmanager-Abgleich ist an einem technischen Schritt fehlgeschlagen (\(type)). Prüfe Chrome und die lokale API-Installation."
         case .schoolManagerRequestFailed:
             return "Der Schulmanager-Stundenplan konnte nicht abgeglichen werden. Prüfe deine Zugangsdaten, Chrome und die lokale API-Installation."
+        case .schoolManagerTimedOut:
+            return "Der Schulmanager-Abgleich hat zu lange gedauert und wurde abgebrochen. Prüfe deine Internetverbindung und versuche es erneut."
         case let .noNextLesson(subject):
             return "Im Stundenplan wurde keine kommende Stunde für \(subject) gefunden."
         }

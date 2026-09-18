@@ -44,6 +44,26 @@ def matches(lesson: str, requested: str) -> bool:
     )
 
 
+def collect_schedule_fallback(driver: webdriver.Chrome) -> list[list[str]]:
+    """Read timetable cells without relying on the vendor parser's fixed indexes."""
+    WebDriverWait(driver, 20).until(
+        EC.presence_of_element_located((By.TAG_NAME, "table"))
+    )
+    tables = driver.find_elements(By.TAG_NAME, "table")
+    if not tables:
+        return [[] for _ in range(7)]
+
+    week = [[] for _ in range(7)]
+    rows = tables[0].find_elements(By.TAG_NAME, "tr")
+    for row in rows[2:]:
+        cells = row.find_elements(By.TAG_NAME, "td")
+        for day in range(7):
+            cell_index = day + 1
+            value = cells[cell_index].text.strip() if cell_index < len(cells) else ""
+            week[day].append(re.sub(r"\s+", " ", value))
+    return week
+
+
 def fail(error: str) -> None:
     print(json.dumps({"error": error}))
     raise SystemExit(0)
@@ -107,13 +127,26 @@ def main() -> None:
             first_monday = reference_date - timedelta(days=reference_date.weekday())
             for week_offset in range(2):
                 monday = first_monday + timedelta(days=week_offset * 7)
-                week = schedules.getPlan(0, driver, ALL=True, startDate=f"?start={monday.isoformat()}")
+                try:
+                    week = schedules.getPlan(0, driver, ALL=True, startDate=f"?start={monday.isoformat()}")
+                except IndexError:
+                    week = collect_schedule_fallback(driver)
+                if not isinstance(week, list) or len(week) < 7:
+                    week = collect_schedule_fallback(driver)
+                elif not any(day for day in week) or not week[reference_date.weekday()]:
+                    week = collect_schedule_fallback(driver)
                 for weekday, lessons in enumerate(week):
                     lesson_date = monday + timedelta(days=weekday)
                     if lesson_date < reference_date:
                         continue
-                    for lesson in lessons:
-                        if lesson and matches(lesson, request["subject"]):
+                    if not request.get("subject") and lesson_date == reference_date:
+                        print(json.dumps({"schedule": [
+                            {"period": index + 1, "title": value, "date": lesson_date.isoformat()}
+                            for index, value in enumerate(lessons) if value
+                        ]}, ensure_ascii=False))
+                        return
+                    for period, lesson in enumerate(lessons, start=1):
+                        if lesson and request.get("subject") and matches(lesson, request["subject"]):
                             print(json.dumps({"date": lesson_date.isoformat(), "subject": request["subject"]}, ensure_ascii=False))
                             return
             fail("no_next_lesson")

@@ -44,6 +44,16 @@ enum KeychainStore {
         }
     }
 
+    /// Removes a stored value entirely, rather than leaving a blank secret behind.
+    static func delete(for account: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+
     enum KeychainError: LocalizedError {
         case unexpectedStatus(OSStatus)
 
