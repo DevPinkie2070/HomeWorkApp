@@ -20,11 +20,15 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 def _locate(error: BaseException) -> str:
+    # The deepest frame alone hasn't been enough to pin down where an error actually originates
+    # (e.g. a bad-argument TypeError's deepest frame is the *caller*, not the library code that
+    # rejected the call) - report the whole call chain instead, innermost first. Still just
+    # file:line pairs, no source text or local values, so nothing sensitive leaks.
     frames = traceback.extract_tb(error.__traceback__)
     if not frames:
         return ""
-    last = frames[-1]
-    return f"@{Path(last.filename).name}:{last.lineno}"
+    chain = "<-".join(f"{Path(frame.filename).name}:{frame.lineno}" for frame in reversed(frames))
+    return f"@{chain}"
 
 
 try:
