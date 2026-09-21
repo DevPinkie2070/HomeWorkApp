@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 
 /// Checks GitHub Releases for a newer build and can download, install and relaunch it in place.
