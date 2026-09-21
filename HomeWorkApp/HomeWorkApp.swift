@@ -5,7 +5,7 @@ struct HomeWorkApp: App {
     @StateObject private var homeworkStore = HomeworkStore()
 
     var body: some Scene {
-        MenuBarExtra("Hausaufgaben", systemImage: "checklist") {
+        MenuBarExtra("Hausaufgaben", systemImage: "backpack.fill") {
             HomeworkComposerView(store: homeworkStore)
         }
         .menuBarExtraStyle(.window)

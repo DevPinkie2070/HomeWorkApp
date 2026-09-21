@@ -33,6 +33,23 @@ final class HomeworkStore: ObservableObject {
     private let nextLessonCacheInterval: TimeInterval = 120
     private var lastScheduleRefreshAt: Date?
     private let scheduleRefreshInterval: TimeInterval = 600
+    private var backgroundRefreshTask: Task<Void, Never>?
+
+    init() {
+        // The menu bar dropdown's content view (and its own `.task`) is only built once the
+        // user opens it, so without this the widget's shared cache would never get populated
+        // for anyone who doesn't open the menu — start refreshing as soon as the app launches.
+        backgroundRefreshTask = Task { [weak self] in
+            while let self, !Task.isCancelled {
+                await self.refreshTodaySchedule()
+                try? await Task.sleep(for: .seconds(self.scheduleRefreshInterval))
+            }
+        }
+    }
+
+    deinit {
+        backgroundRefreshTask?.cancel()
+    }
 
     var subject: String {
         selectedSubject?.name ?? ""

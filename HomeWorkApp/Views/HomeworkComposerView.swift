@@ -6,7 +6,15 @@ struct HomeworkComposerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .center, spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color.accentColor.gradient)
+                        .frame(width: 34, height: 34)
+                    Image(systemName: "backpack.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Hausaufgabe erfassen")
                         .font(.headline)
@@ -15,15 +23,15 @@ struct HomeworkComposerView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "book.closed.fill")
-                    .foregroundStyle(.tint)
             }
 
-            Picker("Fach", selection: $store.selectedSubject) {
+            Picker(selection: $store.selectedSubject) {
                 Text("Fach auswählen").tag(nil as SubjectAlias?)
                 ForEach(store.subjects) { subject in
                     Text(subject.name).tag(subject as SubjectAlias?)
                 }
+            } label: {
+                Label("Fach", systemImage: "books.vertical.fill")
             }
             .pickerStyle(.menu)
 
@@ -102,13 +110,15 @@ struct HomeworkComposerView: View {
                 .disabled(store.isRefreshingSchedule)
                 .help("Stundenplan aktualisieren")
                 SettingsLink {
-                    Image(systemName: "gear")
+                    Image(systemName: "gearshape")
                 }
                 .buttonStyle(.borderless)
                 .help("Einstellungen")
                 Spacer()
-                Button("Beenden") {
+                Button {
                     NSApplication.shared.terminate(nil)
+                } label: {
+                    Label("Beenden", systemImage: "power")
                 }
                 .buttonStyle(.borderless)
                 Button {
@@ -145,7 +155,7 @@ private struct LessonLookupRow: View {
                 Text("Stundenplan wird abgeglichen …")
                     .foregroundStyle(.secondary)
             } else if let lesson = store.nextLesson {
-                Label("Nächste Stunde: \(lesson.formattedStart)", systemImage: "calendar")
+                Label("Nächste Stunde: \(lesson.formattedStart)", systemImage: "calendar.badge.clock")
                     .foregroundStyle(.secondary)
             } else {
                 Text("Nächste Stunde wird beim Anlegen abgeglichen.")

@@ -19,14 +19,16 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Allgemein") {
+            Section {
                 Toggle("Beim Mac-Start öffnen", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, shouldLaunch in
                         updateLaunchAtLogin(shouldLaunch)
                     }
+            } header: {
+                Label("Allgemein", systemImage: "switch.2")
             }
 
-            Section("Fächer-Aliase") {
+            Section {
                 Text("Passe die Kürzel an die Fachbezeichnungen in deinem Schulmanager-Stundenplan an.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -39,9 +41,11 @@ struct SettingsView: View {
                             .frame(width: 120)
                     }
                 }
+            } header: {
+                Label("Fächer-Aliase", systemImage: "books.vertical.fill")
             }
 
-            Section("Schulmanager") {
+            Section {
                 Toggle("Schulmanager-Abgleich aktivieren", isOn: $schoolManagerAccessEnabled)
                 TextField("E-Mail-Adresse", text: $schoolManagerUsername)
                     .textContentType(.emailAddress)
@@ -50,9 +54,11 @@ struct SettingsView: View {
                 Text("Für den Abgleich wird die lokale Drittanbieter-Bibliothek Schulmanager-API mit Chrome/Selenium verwendet. Sie liest ausschließlich deinen Stundenplan; deine Zugangsdaten bleiben im macOS-Schlüsselbund. Bitte nutze sie nur, wenn deine Schule bzw. Schulmanager Online dies erlaubt.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } header: {
+                Label("Schulmanager", systemImage: "calendar")
             }
 
-            Section("ClickUp") {
+            Section {
                 TextField("Listen-ID", text: $clickUpListID)
                 SecureField("Persönlicher API-Token", text: $clickUpToken)
                 TextField("Zugewiesene Person (ClickUp-Nutzer-ID, optional)", text: $clickUpAssigneeID)
@@ -75,12 +81,16 @@ struct SettingsView: View {
                             .lineLimit(2)
                     }
                 }
+            } header: {
+                Label("ClickUp", systemImage: "checklist")
             }
 
             Section {
                 HStack {
-                    Button("Einstellungen sichern") {
+                    Button {
                         save()
+                    } label: {
+                        Label("Einstellungen sichern", systemImage: "checkmark.circle.fill")
                     }
                     .buttonStyle(.borderedProminent)
                     if let savedMessage {

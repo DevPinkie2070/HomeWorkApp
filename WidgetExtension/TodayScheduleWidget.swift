@@ -10,11 +10,16 @@ struct TodayScheduleProvider: TimelineProvider {
     func placeholder(in context: Context) -> ScheduleEntry {
         ScheduleEntry(date: .now, lessons: [
             DailyScheduleLesson(period: 1, title: "Mathematik", date: .now),
-            DailyScheduleLesson(period: 2, title: "Englisch", date: .now)
+            DailyScheduleLesson(period: 2, title: "Englisch", date: .now),
+            DailyScheduleLesson(period: 3, title: "Sport", date: .now)
         ])
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ScheduleEntry) -> Void) {
+        if context.isPreview {
+            completion(placeholder(in: context))
+            return
+        }
         completion(ScheduleEntry(date: .now, lessons: SharedScheduleCache.load()))
     }
 
@@ -26,32 +31,75 @@ struct TodayScheduleProvider: TimelineProvider {
 }
 
 struct TodayScheduleWidgetView: View {
+    @Environment(\.widgetFamily) private var family
     let entry: ScheduleEntry
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            header
+            if entry.lessons.isEmpty {
+                emptyState
+            } else {
+                lessonList
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .containerBackground(.background, for: .widget)
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "calendar")
+                .foregroundStyle(.tint)
+                .font(.headline)
             Text(scheduleTitle)
                 .font(.headline)
-            if entry.lessons.isEmpty {
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Spacer(minLength: 0)
+            HStack(spacing: 8) {
+                Image(systemName: "calendar.badge.exclamationmark")
+                    .foregroundStyle(.secondary)
                 Text("Kein Stundenplan verfügbar")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else {
-                ForEach(entry.lessons.prefix(6)) { lesson in
-                    HStack(spacing: 8) {
-                        Text("\(lesson.period).")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(width: 20, alignment: .trailing)
-                        Text(lesson.title)
-                            .font(.caption)
-                            .lineLimit(1)
-                    }
-                }
             }
+            Text("Öffne die App, um den Stundenplan zu laden.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
             Spacer(minLength: 0)
         }
-        .padding()
+    }
+
+    private var lessonList: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(entry.lessons.prefix(maxLessonCount)) { lesson in
+                HStack(spacing: 8) {
+                    Text("\(lesson.period)")
+                        .font(.caption2.monospacedDigit().bold())
+                        .foregroundStyle(.white)
+                        .frame(width: 18, height: 18)
+                        .background(Circle().fill(.tint))
+                    Text(lesson.title)
+                        .font(.caption)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+    }
+
+    private var maxLessonCount: Int {
+        switch family {
+        case .systemSmall: return 4
+        case .systemMedium: return 5
+        default: return 10
+        }
     }
 
     private var scheduleTitle: String {
