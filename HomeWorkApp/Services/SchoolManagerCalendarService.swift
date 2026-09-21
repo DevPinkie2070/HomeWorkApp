@@ -218,11 +218,30 @@ private struct SchoolManagerPythonRunner {
         Bundle.main.resourceURL?.appendingPathComponent("SchulmanagerRuntime")
     }
 
+    /// Selenium 4.x's own exceptions module uses `X | None` union type hints without deferring
+    /// their evaluation, which is a hard TypeError on Python older than 3.10. Apple's own
+    /// /usr/bin/python3 has been frozen at 3.9.x for years, so it has to be tried *last*, after
+    /// any newer Homebrew install - and even then, only used if it actually meets the minimum.
+    private static let minimumPythonVersion = (major: 3, minor: 10)
+
     private static func locateSystemPython() -> URL? {
-        let candidates = ["/usr/bin/python3", "/opt/homebrew/bin/python3", "/usr/local/bin/python3"]
+        let candidates = ["/opt/homebrew/bin/python3", "/usr/local/bin/python3", "/usr/bin/python3"]
         return candidates
-            .first { FileManager.default.isExecutableFile(atPath: $0) }
+            .first {
+                FileManager.default.isExecutableFile(atPath: $0) && meetsMinimumVersion(pythonAtPath: $0)
+            }
             .map(URL.init(fileURLWithPath:))
+    }
+
+    private static func meetsMinimumVersion(pythonAtPath path: String) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = ["-c", "import sys; exit(0 if sys.version_info >= (\(minimumPythonVersion.major), \(minimumPythonVersion.minor)) else 1)"]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return false }
+        process.waitUntilExit()
+        return process.terminationStatus == 0
     }
 
     private func locate(relativePath: String) throws -> URL {
