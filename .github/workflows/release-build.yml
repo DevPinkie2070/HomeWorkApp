@@ -78,6 +78,24 @@ jobs:
           cp -R "$RUNTIME_DIR/Schulmanager-API" "$DEST/Schulmanager-API"
           cp -R "$RUNTIME_DIR/site-packages" "$DEST/site-packages"
 
+      # CODE_SIGNING_ALLOWED=NO above skips codesign entirely, which also skips embedding
+      # entitlements - the app and widget end up with none at all. That's silently fine for the
+      # app itself, but macOS's PlugInKit daemon hard-rejects any widget extension without an
+      # embedded app-sandbox entitlement ("plug-ins must be sandboxed"), so every release DMG
+      # shipped with the widget invisible in the widget gallery even though the code was correct.
+      # Ad-hoc signing (no paid account, no server-side registration) is enough to embed
+      # entitlements like app-sandbox and app-groups locally - only entitlements that need Apple
+      # to vouch for them (push notifications, etc., none of which this app uses) would need a
+      # real certificate. Widget first, then the containing app, so the app's seal covers the
+      # already-signed widget rather than a since-modified one.
+      - name: Ad-hoc sign app and widget (embeds entitlements PlugInKit requires)
+        run: |
+          set -euo pipefail
+          codesign --force --sign - --entitlements WidgetExtension/WidgetExtension.entitlements \
+            "$APP_PATH/Contents/PlugIns/TodayScheduleWidget.appex"
+          codesign --force --sign - --entitlements HomeWorkApp/HomeWorkApp.entitlements "$APP_PATH"
+          codesign -v --deep "$APP_PATH"
+
       - name: Create DMG
         run: |
           set -euo pipefail
