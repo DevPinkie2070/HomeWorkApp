@@ -14,6 +14,7 @@ import re
 import shutil
 import sys
 import tempfile
+import traceback
 import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -189,8 +190,15 @@ def main() -> None:
     except SystemExit:
         raise
     except Exception as error:
-        # Return only the exception type; Selenium errors may contain page data.
-        fail(f"request_failed:{type(error).__name__}")
+        # Only the exception type plus where it happened (file:line, no source text or locals) -
+        # Selenium errors may contain page data we don't want to forward, but a bare type name
+        # alone hasn't been enough to pin down repeat failures.
+        location = ""
+        frames = traceback.extract_tb(error.__traceback__)
+        if frames:
+            last = frames[-1]
+            location = f"@{Path(last.filename).name}:{last.lineno}"
+        fail(f"request_failed:{type(error).__name__}{location}")
 
 
 if __name__ == "__main__":
