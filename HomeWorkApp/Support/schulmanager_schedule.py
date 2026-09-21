@@ -18,11 +18,15 @@ import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
+try:
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.support.ui import WebDriverWait
+except Exception as error:  # pragma: no cover - only when the Selenium runtime is broken/missing
+    print(json.dumps({"error": f"request_failed:{type(error).__name__}"}))
+    raise SystemExit(0)
 
 
 def normalise(value: str) -> str:
@@ -133,17 +137,24 @@ def main() -> None:
                     week = collect_schedule_fallback(driver)
                 if not isinstance(week, list) or len(week) < 7:
                     week = collect_schedule_fallback(driver)
-                elif not any(day for day in week) or not week[reference_date.weekday()]:
+                elif not any(day for day in week) or not any(cell.strip() for cell in week[reference_date.weekday()]):
                     week = collect_schedule_fallback(driver)
                 for weekday, lessons in enumerate(week):
                     lesson_date = monday + timedelta(days=weekday)
                     if lesson_date < reference_date:
                         continue
                     if not request.get("subject") and lesson_date == reference_date:
-                        print(json.dumps({"schedule": [
+                        entries = [
                             {"period": index + 1, "title": value, "date": lesson_date.isoformat()}
                             for index, value in enumerate(lessons) if value
-                        ]}, ensure_ascii=False))
+                        ]
+                        if not entries:
+                            # A genuinely empty day is rare on a weekday; far more likely the
+                            # vendor parser's selectors no longer match the current Schulmanager
+                            # page layout. Report this distinctly so it isn't mistaken for bad
+                            # credentials.
+                            fail("schedule_empty")
+                        print(json.dumps({"schedule": entries}, ensure_ascii=False))
                         return
                     for period, lesson in enumerate(lessons, start=1):
                         if lesson and request.get("subject") and matches(lesson, request["subject"]):
@@ -151,7 +162,13 @@ def main() -> None:
                             return
             fail("no_next_lesson")
         finally:
-            driver.quit()
+            # A crash here (e.g. Chrome already gone) would otherwise replace a result that was
+            # already reported via fail()'s SystemExit with an unhandled exception, turning a
+            # decodable error into a bare nonzero exit Swift can't make sense of.
+            try:
+                driver.quit()
+            except Exception:
+                pass
             shutil.rmtree(profile_path, ignore_errors=True)
     except SystemExit:
         raise

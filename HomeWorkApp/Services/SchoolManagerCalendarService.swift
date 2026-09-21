@@ -9,7 +9,7 @@ struct SchoolManagerCalendarService {
         }
         let lessons = try await run(subject: nil, referenceDate: referenceDate).schedule ?? []
         guard !lessons.isEmpty else {
-            throw HomeworkServiceError.schoolManagerRequestFailed
+            throw HomeworkServiceError.schoolManagerScheduleEmpty
         }
         return lessons
     }
@@ -137,6 +137,8 @@ private struct SchoolManagerPythonRunner {
                 throw HomeworkServiceError.schoolManagerLoginTimeout
             case "no_next_lesson":
                 throw HomeworkServiceError.noNextLesson(subject ?? "")
+            case "schedule_empty":
+                throw HomeworkServiceError.schoolManagerScheduleEmpty
             default:
                 if error.hasPrefix("request_failed:") {
                     let type = String(error.dropFirst("request_failed:".count))

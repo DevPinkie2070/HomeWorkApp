@@ -125,6 +125,7 @@ enum HomeworkServiceError: LocalizedError {
     case schoolManagerLoginTimeout
     case schoolManagerDiagnostic(String)
     case schoolManagerRequestFailed
+    case schoolManagerScheduleEmpty
     case schoolManagerTimedOut
     case noNextLesson(String)
 
@@ -158,6 +159,8 @@ enum HomeworkServiceError: LocalizedError {
             return "Der Schulmanager-Abgleich ist an einem technischen Schritt fehlgeschlagen (\(type)). Prüfe Chrome und die lokale API-Installation."
         case .schoolManagerRequestFailed:
             return "Der Schulmanager-Stundenplan konnte nicht abgeglichen werden. Prüfe deine Zugangsdaten, Chrome und die lokale API-Installation."
+        case .schoolManagerScheduleEmpty:
+            return "Der Abgleich hat einen leeren Stundenplan geliefert. Das liegt meist daran, dass sich das Schulmanager-Seitenlayout geändert hat und der Parser nichts mehr erkennt – nicht an deinen Zugangsdaten."
         case .schoolManagerTimedOut:
             return "Der Schulmanager-Abgleich hat zu lange gedauert und wurde abgebrochen. Prüfe deine Internetverbindung und versuche es erneut."
         case let .noNextLesson(subject):
