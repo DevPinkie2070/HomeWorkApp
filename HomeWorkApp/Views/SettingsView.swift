@@ -3,6 +3,7 @@ import ServiceManagement
 
 struct SettingsView: View {
     @ObservedObject var store: HomeworkStore
+    @ObservedObject var updateService: AppUpdateService
     @State private var launchAtLogin = SchoolSettings().launchAtLogin
     @State private var schoolManagerAccessEnabled = false
     @State private var schoolManagerUsername = ""
@@ -26,6 +27,12 @@ struct SettingsView: View {
                     }
             } header: {
                 Label("Allgemein", systemImage: "switch.2")
+            }
+
+            Section {
+                UpdateSettingsRow(updateService: updateService)
+            } header: {
+                Label("Update", systemImage: "arrow.down.circle")
             }
 
             Section {
@@ -201,6 +208,71 @@ struct SettingsView: View {
 
         var errorDescription: String? {
             "Bitte gib für jedes Fach einen Alias ein."
+        }
+    }
+}
+
+private struct UpdateSettingsRow: View {
+    @ObservedObject var updateService: AppUpdateService
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Aktueller Build: \(updateService.currentBuild)")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Nach Updates suchen") {
+                    Task { await updateService.checkForUpdates() }
+                }
+                .disabled(isChecking)
+            }
+            statusView
+        }
+        .font(.caption)
+    }
+
+    private var isChecking: Bool {
+        if case .checking = updateService.state { return true }
+        if case .downloading = updateService.state { return true }
+        if case .installing = updateService.state { return true }
+        return false
+    }
+
+    @ViewBuilder
+    private var statusView: some View {
+        switch updateService.state {
+        case .idle:
+            EmptyView()
+        case .checking:
+            Label("Suche nach Updates …", systemImage: "arrow.triangle.2.circlepath")
+                .foregroundStyle(.secondary)
+        case .upToDate:
+            Label("Du nutzt bereits die aktuelle Version.", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+        case let .updateAvailable(build, downloadURL):
+            HStack {
+                Label("Build \(build) verfügbar", systemImage: "arrow.down.circle.fill")
+                    .foregroundStyle(.orange)
+                Spacer()
+                Button("Jetzt installieren") {
+                    Task { await updateService.installUpdate(build: build, from: downloadURL) }
+                }
+            }
+        case let .downloading(build, progress):
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Build \(build) wird heruntergeladen … \(Int(progress * 100)) %")
+                ProgressView(value: progress)
+            }
+        case let .installing(build):
+            Label("Build \(build) wird installiert …", systemImage: "shippingbox.fill")
+                .foregroundStyle(.secondary)
+        case .relaunching:
+            Label("Update installiert – App startet neu …", systemImage: "arrow.clockwise.circle.fill")
+                .foregroundStyle(.green)
+        case let .failed(message):
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
+                .lineLimit(3)
         }
     }
 }

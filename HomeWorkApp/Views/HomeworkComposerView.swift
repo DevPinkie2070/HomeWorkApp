@@ -3,9 +3,14 @@ import SwiftUI
 
 struct HomeworkComposerView: View {
     @ObservedObject var store: HomeworkStore
+    @ObservedObject var updateService: AppUpdateService
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            if updateService.state.isNoteworthy {
+                UpdateBanner(updateService: updateService)
+            }
+
             HStack(alignment: .center, spacing: 10) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
@@ -168,5 +173,76 @@ private struct LessonLookupRow: View {
             .disabled(store.subject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isLoadingLesson)
         }
         .font(.caption)
+    }
+}
+
+private struct UpdateBanner: View {
+    @ObservedObject var updateService: AppUpdateService
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: iconName)
+                .foregroundStyle(iconColor)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption.bold())
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+            if case let .updateAvailable(build, downloadURL) = updateService.state {
+                Button("Installieren") {
+                    Task { await updateService.installUpdate(build: build, from: downloadURL) }
+                }
+                .controlSize(.small)
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.quaternary.opacity(0.5)))
+    }
+
+    private var iconName: String {
+        switch updateService.state {
+        case .updateAvailable: return "arrow.down.circle.fill"
+        case .downloading: return "arrow.down.circle"
+        case .installing: return "shippingbox.fill"
+        case .relaunching: return "arrow.clockwise.circle.fill"
+        case .failed: return "exclamationmark.triangle.fill"
+        default: return "checkmark.circle.fill"
+        }
+    }
+
+    private var iconColor: Color {
+        switch updateService.state {
+        case .failed: return .red
+        default: return .accentColor
+        }
+    }
+
+    private var title: String {
+        switch updateService.state {
+        case let .updateAvailable(build, _):
+            return "Update auf Build \(build) verfügbar"
+        case let .downloading(build, _):
+            return "Build \(build) wird heruntergeladen …"
+        case let .installing(build):
+            return "Build \(build) wird installiert …"
+        case .relaunching:
+            return "Update installiert – App startet neu …"
+        case let .failed(message):
+            return message
+        default:
+            return ""
+        }
+    }
+
+    private var subtitle: String? {
+        if case let .downloading(_, progress) = updateService.state {
+            return "\(Int(progress * 100)) %"
+        }
+        return nil
     }
 }

@@ -16,6 +16,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # CURRENT_PROJECT_VERSION becomes CFBundleVersion in the built app. The in-app updater
+      # (HomeWorkApp/Services/AppUpdateService.swift) reads this at runtime and compares it
+      # against the run number embedded in each GitHub release's tag (release-<run number>) to
+      # decide whether a newer build exists - so it has to match this run, not the "1" checked
+      # into the project.
       - name: Build macOS app archive
         run: |
           set -euo pipefail
@@ -25,7 +30,8 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=macOS' \
             -archivePath "$RUNNER_TEMP/HomeWorkApp.xcarchive" \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
 
       - name: Locate built app
         run: |
