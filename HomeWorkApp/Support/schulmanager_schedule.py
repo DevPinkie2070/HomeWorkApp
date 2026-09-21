@@ -73,6 +73,23 @@ def fail(error: str) -> None:
     raise SystemExit(0)
 
 
+def normalise_week(week: object) -> list[list[str]]:
+    """Coerces whatever the vendor parser (or our own fallback) returned into a guaranteed
+    7-entry list of string lists. The vendor's getPlan() has been observed to represent a day
+    with no lessons as None rather than [], which crashes any/enumerate/iteration downstream
+    with a bare TypeError if not normalised first."""
+    if not isinstance(week, list):
+        return [[] for _ in range(7)]
+    normalised: list[list[str]] = []
+    for day in range(7):
+        day_value = week[day] if day < len(week) else None
+        if isinstance(day_value, list):
+            normalised.append(["" if cell is None else str(cell) for cell in day_value])
+        else:
+            normalised.append([])
+    return normalised
+
+
 def login_with_email(driver: webdriver.Chrome, email: str, password: str) -> str:
     driver.get("https://login.schulmanager-online.de/#/login")
     wait = WebDriverWait(driver, 30)
@@ -135,10 +152,9 @@ def main() -> None:
                     week = schedules.getPlan(0, driver, ALL=True, startDate=f"?start={monday.isoformat()}")
                 except IndexError:
                     week = collect_schedule_fallback(driver)
-                if not isinstance(week, list) or len(week) < 7:
-                    week = collect_schedule_fallback(driver)
-                elif not any(day for day in week) or not any(cell.strip() for cell in week[reference_date.weekday()]):
-                    week = collect_schedule_fallback(driver)
+                week = normalise_week(week)
+                if not any(week) or not any(cell.strip() for cell in week[reference_date.weekday()]):
+                    week = normalise_week(collect_schedule_fallback(driver))
                 for weekday, lessons in enumerate(week):
                     lesson_date = monday + timedelta(days=weekday)
                     if lesson_date < reference_date:
