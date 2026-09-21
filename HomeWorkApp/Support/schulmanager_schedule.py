@@ -19,6 +19,14 @@ import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+def _locate(error: BaseException) -> str:
+    frames = traceback.extract_tb(error.__traceback__)
+    if not frames:
+        return ""
+    last = frames[-1]
+    return f"@{Path(last.filename).name}:{last.lineno}"
+
+
 try:
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
@@ -26,7 +34,7 @@ try:
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.webdriver.support.ui import WebDriverWait
 except Exception as error:  # pragma: no cover - only when the Selenium runtime is broken/missing
-    print(json.dumps({"error": f"request_failed:{type(error).__name__}"}))
+    print(json.dumps({"error": f"request_failed:{type(error).__name__}{_locate(error)}"}))
     raise SystemExit(0)
 
 
@@ -193,12 +201,7 @@ def main() -> None:
         # Only the exception type plus where it happened (file:line, no source text or locals) -
         # Selenium errors may contain page data we don't want to forward, but a bare type name
         # alone hasn't been enough to pin down repeat failures.
-        location = ""
-        frames = traceback.extract_tb(error.__traceback__)
-        if frames:
-            last = frames[-1]
-            location = f"@{Path(last.filename).name}:{last.lineno}"
-        fail(f"request_failed:{type(error).__name__}{location}")
+        fail(f"request_failed:{type(error).__name__}{_locate(error)}")
 
 
 if __name__ == "__main__":
